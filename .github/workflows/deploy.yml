@@ -2,18 +2,28 @@ name: Deploy to GitHub Pages
 
 # Manual-trigger only, deliberately.
 #
-# GitHub Pages cannot serve a private repository on the Free plan:
+# This account's plan cannot run GitHub Actions *or* GitHub Pages against a
+# private repository. Both were verified directly:
 #
 #   POST /repos/OWNER/REPO/pages
-#   422 "Your current plan does not support GitHub Pages for this repository."
+#   -> 422 "Your current plan does not support GitHub Pages for this repository."
 #
-# Because Pages is unavailable, the `github-pages` environment below cannot be
-# created and the run fails at startup — before any job executes. Leaving a
-# push trigger on would therefore mark every single commit as failed while
-# telling us nothing.
+#   ...and every workflow run — including a six-line `echo hello` probe — ends
+#   in `startup_failure` after 0s with no logs and no jobs created, which is
+#   what GitHub returns when a private repository cannot consume Actions
+#   minutes.
 #
-# To deploy, first make Pages available (make the repository public, or upgrade
-# the account), then restore automatic deploys by adding:
+# So a push trigger here would mark every commit failed without ever running a
+# step. The workflow itself is correct and was validated by building the same
+# `dist/` locally; it is kept ready rather than removed.
+#
+# To deploy: make Actions and Pages available for this repository (make it
+# public, or upgrade the account), re-enable the workflows
+#
+#   gh api -X PUT repos/OWNER/REPO/actions/workflows/deploy.yml/enable
+#   gh api -X PUT repos/OWNER/REPO/actions/workflows/ci.yml/enable
+#
+# then add
 #
 #   push:
 #     branches: [main]

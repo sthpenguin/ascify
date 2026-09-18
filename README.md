@@ -3,10 +3,10 @@
 Turn images, GIFs, video, webcam frames and GLB models into ASCII art and fourteen other retro
 effects — entirely in the browser.
 
-> **Deployment status:** this repository is private, and GitHub Pages does not serve private
-> repositories on the Free plan, so there is no live URL yet. The build, the Pages workflow and the
-> `/ascify/` base path are all in place and verified — see [Deployment](#deployment) for the one
-> change needed to publish.
+> **Deployment status:** this repository is private, and its account plan supports neither GitHub
+> Pages nor GitHub Actions for private repositories — so there is no live URL and CI does not run.
+> Everything is nonetheless built and verified locally, and the workflows are committed and ready.
+> See [Deployment](#deployment) for what unblocks it.
 
 There is no server, no account, and no upload step. Your files are read by the browser, handed to
 the GPU, and released. Nothing is stored and nothing is sent.
@@ -258,33 +258,46 @@ GitHub Pages, entirely static, no backend and no VPS.
 
 ### Current status
 
-Pages is **not enabled**, because GitHub does not serve Pages from a private repository on the Free
-plan:
+Neither Pages nor Actions is available to this repository while it is private on its current plan.
+Both were checked directly rather than assumed:
 
 ```
 POST /repos/sthpenguin/ascify/pages
 → 422  "Your current plan does not support GitHub Pages for this repository."
 ```
 
-Since the `github-pages` environment cannot be created, a Pages run fails at *startup*, before any
-job executes. `deploy.yml` is therefore `workflow_dispatch`-only — otherwise every commit would be
-marked failed for a reason that has nothing to do with the commit.
+and every workflow run — including a six-line `echo hello` probe pushed to a scratch branch — ends
+in `startup_failure` after **0s**, with no logs and no jobs created. That is the signature of a
+private repository that cannot consume Actions minutes, not of a broken workflow.
 
-**To publish**, make Pages available (make the repository public, or upgrade the account), then add
+Both workflows are therefore **disabled** and `deploy.yml` is `workflow_dispatch`-only, so the
+history is not littered with red marks for a reason unrelated to any commit. They are kept rather
+than deleted: both are correct, and `deploy.yml` publishes exactly the `dist/` that
+[Verification](#verification) exercises locally.
+
+**To unblock**, make the repository public *or* upgrade the account, then:
+
+```bash
+gh api -X PUT repos/sthpenguin/ascify/actions/workflows/ci.yml/enable
+gh api -X PUT repos/sthpenguin/ascify/actions/workflows/deploy.yml/enable
+```
+
+and add
 
 ```yaml
   push:
     branches: [main]
 ```
 
-back under `on:` in `.github/workflows/deploy.yml`. Everything else is already correct: the base
-path, the 404 shim, the service-worker scope and the artifact path.
+back under `on:` in `deploy.yml`. Everything else is already correct: the base path, the 404 shim,
+the service-worker scope and the artifact path.
 
 ### CI
 
-`.github/workflows/ci.yml` runs on every push regardless: it builds, asserts the expected artifacts
-exist, fails if any media file is ever tracked by git, and then runs the privacy, render, responsive
-and offline suites in a real browser.
+`.github/workflows/ci.yml` builds, asserts the expected artifacts exist, fails if any media file is
+ever tracked by git, and runs the privacy, render, responsive and offline suites in a real browser.
+It is ready to run the moment Actions is available; until then, `npm run verify` does the same work
+locally.
 
 ### How the Pages build is wired
 
