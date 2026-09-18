@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          test -f dist/index.html
+          test -f dist/404.html
+          test -f dist/sw.js
+          test -f dist/manifest.webmanifest
+          test -f dist/icons/icon-512.png
+          echo "dist/ contains $(find dist -type f | wc -l) files"
+
+      - name: Assert no media was committed
+        # The privacy guarantee starts in the repository itself.
+        run: |
+          if git ls-files | grep -iE '\.(png|jpe?g|gif|webp|mp4|webm|mov|glb|gltf|wav|mp3)$'; then
+            echo "::error::media files are tracked by git"
+            exit 1
+          fi
+          echo "no media files tracked"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 7
+
+  verify:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # The runner image ships Chrome; playwright-core drives it directly, so
+      # no browser download is needed.
+      - name: Locate Chrome
+        id: chrome
+        run: echo "path=$(command -v google-chrome || command -v chromium-browser || command -v chromium)" >> "$GITHUB_OUTPUT"
+
+      - name: Privacy check
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.path }}
+        run: npm run test:privacy
+
+      - name: Render check
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.path }}
+        run: npm run test:render
+
+      - name: Responsive check
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.path }}
+        run: npm run test:responsive

@@ -1,8 +1,25 @@
 name: Deploy to GitHub Pages
 
+# Manual-trigger only, deliberately.
+#
+# GitHub Pages cannot serve a private repository on the Free plan:
+#
+#   POST /repos/OWNER/REPO/pages
+#   422 "Your current plan does not support GitHub Pages for this repository."
+#
+# Because Pages is unavailable, the `github-pages` environment below cannot be
+# created and the run fails at startup — before any job executes. Leaving a
+# push trigger on would therefore mark every single commit as failed while
+# telling us nothing.
+#
+# To deploy, first make Pages available (make the repository public, or upgrade
+# the account), then restore automatic deploys by adding:
+#
+#   push:
+#     branches: [main]
+#
+# back under `on:`. Nothing else needs to change.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 # GITHUB_TOKEN needs `pages: write` and `id-token: write` for deploy-pages to

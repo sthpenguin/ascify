@@ -3,7 +3,10 @@
 Turn images, GIFs, video, webcam frames and GLB models into ASCII art and fourteen other retro
 effects — entirely in the browser.
 
-**Live:** <https://sthpenguin.github.io/ascify/>
+> **Deployment status:** this repository is private, and GitHub Pages does not serve private
+> repositories on the Free plan, so there is no live URL yet. The build, the Pages workflow and the
+> `/ascify/` base path are all in place and verified — see [Deployment](#deployment) for the one
+> change needed to publish.
 
 There is no server, no account, and no upload step. Your files are read by the browser, handed to
 the GPU, and released. Nothing is stored and nothing is sent.
@@ -252,12 +255,44 @@ seo            100
 
 GitHub Pages, entirely static, no backend and no VPS.
 
+### Current status
+
+Pages is **not enabled**, because GitHub does not serve Pages from a private repository on the Free
+plan:
+
+```
+POST /repos/sthpenguin/ascify/pages
+→ 422  "Your current plan does not support GitHub Pages for this repository."
+```
+
+Since the `github-pages` environment cannot be created, a Pages run fails at *startup*, before any
+job executes. `deploy.yml` is therefore `workflow_dispatch`-only — otherwise every commit would be
+marked failed for a reason that has nothing to do with the commit.
+
+**To publish**, make Pages available (make the repository public, or upgrade the account), then add
+
+```yaml
+  push:
+    branches: [main]
+```
+
+back under `on:` in `.github/workflows/deploy.yml`. Everything else is already correct: the base
+path, the 404 shim, the service-worker scope and the artifact path.
+
+### CI
+
+`.github/workflows/ci.yml` runs on every push regardless: it builds, asserts the expected artifacts
+exist, fails if any media file is ever tracked by git, and then runs the privacy, render and
+responsive suites in a real browser.
+
+### How the Pages build is wired
+
 - `vite.config.js` sets `base: '/ascify/'`, so every asset resolves under the project sub-path.
 - `dist/404.html` is written as a copy of `index.html` at build time — the standard Pages shim
   that makes deep links like `/ascify/about` resolve.
-- `.github/workflows/deploy.yml` runs on push to `main`: `actions/configure-pages` →
-  `actions/upload-pages-artifact` (artifact `dist/`) → `actions/deploy-pages`. Pages is enabled by
-  the workflow itself; no manual repository setting is required.
+- `.github/workflows/deploy.yml` runs `actions/configure-pages` → `actions/upload-pages-artifact`
+  (artifact `dist/`) → `actions/deploy-pages`. Once Pages is available, the workflow enables and
+  configures it itself; no manual repository setting is required.
 - The PWA manifest and service worker are both scoped to `/ascify/`, so install and offline work
   under the sub-path.
 
