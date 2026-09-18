@@ -1,0 +1,73 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# build output
+dist/
+dist-ssr/
+*.local
+dev-dist/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+*.log
+
+# editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# secrets / env — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.keystore
+secrets.json
+.npmrc
+
+# test + tooling artifacts
+coverage/
+.lighthouseci/
+playwright-report/
+test-results/
+reports/
+
+# User media must never be tracked (privacy guarantee).
+# These are anchored to the repository root: an unanchored `media/` would also
+# swallow src/media/, which is source code.
+/samples/
+/media/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.mp4
+*.webm
+*.mov
+*.glb
+*.gltf
+*.wav
+*.mp3
+
+# generated app icons are produced by `npm run icons` at build time
+public/icons/
+
+# allow project-owned vector assets only
+!src/**/*.svg
+!public/*.svg

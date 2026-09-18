@@ -1,0 +1,37 @@
+{
+  "name": "ascify",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "100% client-side image/video to retro-effect converter. Your files never leave your device.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "node scripts/gen-icons.mjs && vite build",
+    "preview": "vite preview --port 4173",
+    "icons": "node scripts/gen-icons.mjs",
+    "test:privacy": "node scripts/privacy-check.mjs",
+    "test:responsive": "node scripts/responsive-check.mjs",
+    "lighthouse": "node scripts/lighthouse-check.mjs",
+    "test:render": "node scripts/render-check.mjs",
+    "test": "npm run test:privacy && npm run test:responsive && npm run test:render",
+    "verify": "npm run build && npm run test && npm run lighthouse"
+  },
+  "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.1.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.171.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "chrome-launcher": "^1.2.1",
+    "lighthouse": "^12.3.0",
+    "playwright-core": "^1.49.1",
+    "tailwindcss": "^4.0.0",
+    "terser": "^5.37.0",
+    "vite": "^6.0.7",
+    "vite-plugin-pwa": "^0.21.1"
+  }
+}

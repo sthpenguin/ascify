@@ -1,0 +1,268 @@
+@import 'tailwindcss';
+
+/* Self-hosted so the app renders identically offline and Lighthouse never
+   waits on a third-party font host. Only the Latin subset ships: the UI is
+   English, and pulling Cyrillic/Greek/Vietnamese would quadruple what the
+   service worker precaches for glyphs nothing ever renders. Charsets that use
+   other scripts still work — they fall back to the platform monospace face. */
+@import '@fontsource/jetbrains-mono/latin-400.css';
+@import '@fontsource/jetbrains-mono/latin-500.css';
+@import '@fontsource/jetbrains-mono/latin-700.css';
+
+@theme {
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-term-bg: #0a0a0a;
+  --color-term-panel: #101010;
+  --color-term-raised: #161616;
+  --color-term-line: #1f2a1f;
+  --color-term-line-soft: #161c16;
+  --color-term-accent: #00ff00;
+  --color-term-accent-dim: #00b300;
+  --color-term-accent-faint: #0a2a0a;
+  --color-term-text: #c8f5c8;
+  --color-term-muted: #6f8a6f;
+  --color-term-warn: #ffcc00;
+  --color-term-error: #ff4d4d;
+
+  --radius-term: 2px;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-term-bg);
+    color: var(--color-term-text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* Stops iOS rubber-banding the whole page while dragging on the canvas. */
+    overscroll-behavior: none;
+  }
+
+  /* Touch targets are 44px minimum; this keeps tap highlights from flashing
+     a blue box over the terminal aesthetic. */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-term-accent);
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-term-bg);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #23331f;
+    border-radius: 0;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-term-accent-dim);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .term-panel {
+    background: var(--color-term-panel);
+    border: 1px solid var(--color-term-line);
+  }
+
+  /* 12px is the floor for legible body text on a phone; the terminal look
+     comes from uppercase + tracking rather than from shrinking the type. */
+  .term-label {
+    color: var(--color-term-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 12px;
+  }
+
+  .term-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 44px;
+    padding: 0 0.75rem;
+    border: 1px solid var(--color-term-line);
+    background: var(--color-term-raised);
+    color: var(--color-term-text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  }
+  .term-btn:hover:not(:disabled) {
+    border-color: var(--color-term-accent-dim);
+    color: var(--color-term-accent);
+  }
+  .term-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .term-btn[data-active='true'] {
+    border-color: var(--color-term-accent);
+    background: var(--color-term-accent-faint);
+    color: var(--color-term-accent);
+  }
+
+  /* Desktop density: the 44px floor is a touch requirement, not a mouse one. */
+  @media (pointer: fine) {
+    .term-btn {
+      min-height: 30px;
+    }
+  }
+
+  .term-input {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 0.5rem;
+    background: var(--color-term-bg);
+    border: 1px solid var(--color-term-line);
+    color: var(--color-term-text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  @media (pointer: fine) {
+    .term-input {
+      min-height: 28px;
+    }
+  }
+
+  .term-scroll {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Range inputs are styled by hand: the native control has no consistent
+     cross-browser appearance and its default hit area is well under 44px. */
+  .ascify-range {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    height: 28px;
+    cursor: pointer;
+  }
+  .ascify-range::-webkit-slider-runnable-track {
+    height: 2px;
+    background: var(--color-term-line);
+  }
+  .ascify-range::-moz-range-track {
+    height: 2px;
+    background: var(--color-term-line);
+  }
+  .ascify-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -6px;
+    background: var(--color-term-accent);
+    border: none;
+    border-radius: 0;
+  }
+  .ascify-range::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: var(--color-term-accent);
+    border: none;
+    border-radius: 0;
+  }
+  .ascify-range:disabled::-webkit-slider-thumb {
+    background: var(--color-term-muted);
+  }
+  .ascify-range:disabled::-moz-range-thumb {
+    background: var(--color-term-muted);
+  }
+  .ascify-range:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px var(--color-term-accent-faint);
+  }
+
+  /* Coarse pointers get a bigger grab target without changing the visual. */
+  @media (pointer: coarse) {
+    .ascify-range {
+      height: 44px;
+    }
+    .ascify-range::-webkit-slider-thumb {
+      width: 18px;
+      height: 18px;
+      margin-top: -8px;
+    }
+    .ascify-range::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+    }
+  }
+}
+
+@layer utilities {
+  .pt-safe {
+    padding-top: var(--safe-t);
+  }
+  .pb-safe {
+    padding-bottom: var(--safe-b);
+  }
+  .pl-safe {
+    padding-left: var(--safe-l);
+  }
+  .pr-safe {
+    padding-right: var(--safe-r);
+  }
+  .inset-safe-x {
+    padding-left: var(--safe-l);
+    padding-right: var(--safe-r);
+  }
+  .touch-none-pan {
+    touch-action: none;
+  }
+
+  /**
+   * Guarantees a 44x44 hit area on touch devices without inflating the layout
+   * for a mouse. Applied to the small icon controls (reset arrows, footer
+   * links, the wordmark) whose visual size is deliberately under the minimum.
+   */
+  .tap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  @media (pointer: coarse) {
+    .tap {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+}
