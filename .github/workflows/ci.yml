@@ -88,3 +88,8 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.path }}
         run: npm run test:responsive
+
+      - name: Offline / PWA check
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.path }}
+        run: npm run test:offline

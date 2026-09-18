@@ -235,6 +235,7 @@ Individually:
 | `npm run test:privacy` | Loads, replaces and clears large media, then asserts nothing persisted anywhere |
 | `npm run test:responsive` | Checks overflow, layout mode and 44px touch targets at 320/768/1440 |
 | `npm run test:render` | Renders all 15 effects on **both** WebGL2 and CPU, then runs every export format |
+| `npm run test:offline` | Installs the service worker, cuts the network, and reloads — including a deep link |
 | `npm run lighthouse` | Mobile profile; fails below 95 in any category |
 
 The browser tests drive the system Chromium via `playwright-core` (`CHROME_PATH` to override) —
@@ -282,8 +283,8 @@ path, the 404 shim, the service-worker scope and the artifact path.
 ### CI
 
 `.github/workflows/ci.yml` runs on every push regardless: it builds, asserts the expected artifacts
-exist, fails if any media file is ever tracked by git, and then runs the privacy, render and
-responsive suites in a real browser.
+exist, fails if any media file is ever tracked by git, and then runs the privacy, render, responsive
+and offline suites in a real browser.
 
 ### How the Pages build is wired
 
