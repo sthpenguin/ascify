@@ -84,6 +84,11 @@ jobs:
           CHROME_PATH: ${{ steps.chrome.outputs.path }}
         run: npm run test:render
 
+      - name: Orientation check
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.path }}
+        run: npm run test:orientation
+
       - name: Responsive check
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.path }}

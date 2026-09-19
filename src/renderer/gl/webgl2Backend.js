@@ -177,9 +177,22 @@ export function createWebGL2Backend(canvas) {
     gl.bindTexture(gl.TEXTURE_2D, tex);
   }
 
+  /**
+   * Upload the current frame.
+   *
+   * Note the deliberate absence of UNPACK_FLIP_Y_WEBGL: WebGL *ignores* that
+   * flag when the source is an ImageBitmap, and honours it for every other
+   * source type. Relying on it therefore renders still images upside down
+   * while video, GIF and GLB (which arrive as elements or canvases) come out
+   * upright — a bug that only shows on one input kind.
+   *
+   * So the frame is uploaded in its natural order, row 0 being the top of the
+   * image, and the single vertical flip GL's bottom-left origin requires is
+   * applied in the shader, where it is uniform across every source type.
+   * ADJUST_FRAG and BLIT_FRAG are the only two places the raw frame is read.
+   */
   function uploadSource(frame, w, h) {
     gl.bindTexture(gl.TEXTURE_2D, srcTex);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     const sig = `${w}x${h}`;
     if (sig !== srcSignature) {
@@ -189,12 +202,13 @@ export function createWebGL2Backend(canvas) {
       // Same dimensions: a sub-image upload avoids reallocating every frame.
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, frame);
     }
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
   }
 
   function uploadAtlas(atlas) {
     if (atlas.key === atlasKey) return;
     gl.bindTexture(gl.TEXTURE_2D, atlasTex);
+    // The atlas is always a canvas, never an ImageBitmap, so the flip flag is
+    // honoured here; GLYPH_FRAG mirrors the glyph row to match.
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, atlas.canvas);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);

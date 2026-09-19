@@ -58,6 +58,21 @@ export function Preview({ onContext }) {
     setCanvasKey((k) => k + 1);
   }, [backendPref]);
 
+  // Clearing media tears the engine down rather than just stopping it. A
+  // stopped backend leaves its last frame on the canvas, which reads as "clear
+  // didn't work", and it would also keep the GPU textures for a file the user
+  // has just asked to be rid of. The canvas itself unmounts (see below), so
+  // the next load starts from a fresh one.
+  useEffect(() => {
+    if (media || !engineRef.current) return;
+    engineRef.current.dispose();
+    engineRef.current = null;
+    backendOverride.current = null;
+    setEngineReady(false);
+    setStats({ fps: 0, backend: 'none', width: 0, height: 0 });
+    setCanvasKey((k) => k + 1);
+  }, [media, setStats]);
+
   useEffect(() => {
     if (!media || engineRef.current) return undefined;
     let cancelled = false;
@@ -275,16 +290,18 @@ export function Preview({ onContext }) {
           backgroundSize: ui.showGrid ? '24px 24px' : undefined,
         }}
       >
-        <canvas
-          key={canvasKey}
-          ref={canvasRef}
-          className="max-h-full max-w-full object-contain"
-          style={{
-            transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`,
-            transformOrigin: 'center',
-            imageRendering: zoom > 1.8 ? 'pixelated' : 'auto',
-          }}
-        />
+        {media ? (
+          <canvas
+            key={canvasKey}
+            ref={canvasRef}
+            className="max-h-full max-w-full object-contain"
+            style={{
+              transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`,
+              transformOrigin: 'center',
+              imageRendering: zoom > 1.8 ? 'pixelated' : 'auto',
+            }}
+          />
+        ) : null}
 
         {!media ? (
           <div className="pointer-events-none absolute inset-0 grid place-items-center p-6 text-center">

@@ -595,8 +595,12 @@ function drawHalftone(ctx, img, p) {
   const { width: w, height: h } = img;
   const cell = Math.max(2, p.cell);
   const ang = (p.angle * Math.PI) / 180;
-  const cos = Math.cos(-ang);
-  const sin = Math.sin(-ang);
+  // The canvas transform below is translate(centre) . rotate(ang), so a point
+  // in screen-grid space maps back to image space through the *same* rotation,
+  // not its inverse. Using cos(-ang)/sin(-ang) here samples the mirrored
+  // position, which tints every dot from the wrong part of the image.
+  const cos = Math.cos(ang);
+  const sin = Math.sin(ang);
   const diag = Math.hypot(w, h);
   ctx.save();
   ctx.translate(w / 2, h / 2);

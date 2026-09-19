@@ -235,6 +235,7 @@ Individually:
 | `npm run test:privacy` | Loads, replaces and clears large media, then asserts nothing persisted anywhere |
 | `npm run test:responsive` | Checks overflow, layout mode and 44px touch targets at 320/768/1440 |
 | `npm run test:render` | Renders all 15 effects on **both** WebGL2 and CPU, then runs every export format |
+| `npm run test:orientation` | Asserts output is never flipped, and that clearing media really removes it |
 | `npm run test:offline` | Installs the service worker, cuts the network, and reloads — including a deep link |
 | `npm run lighthouse` | Mobile profile; fails below 95 in any category |
 

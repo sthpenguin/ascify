@@ -2,8 +2,11 @@
  * GLSL ES 3.00 sources for the WebGL2 backend.
  *
  * Design notes:
- *  - Source textures are uploaded with UNPACK_FLIP_Y, so every pass can use the
- *    same `vUv = pos * 0.5 + 0.5` mapping and the final blit lands upright.
+ *  - Every pass uses the same `vUv = pos * 0.5 + 0.5` mapping, so passes chain
+ *    without changing orientation. The one vertical correction GL's bottom-left
+ *    origin needs is applied where the raw uploaded frame is read — ADJUST_FRAG
+ *    and BLIT_FRAG — rather than at upload time, because UNPACK_FLIP_Y_WEBGL is
+ *    ignored for ImageBitmap sources and would flip only still images.
  *  - Effects write vec4(rgb, ink) where `ink` is coverage. Compositing against
  *    the background happens once, in COMPOSITE_CHUNK, so "background intensity"
  *    behaves identically for all fifteen effects.
@@ -86,15 +89,21 @@ vec3 hueRotate(vec3 c, float a) {
 }
 
 void main() {
-  vec3 c = texture(uSrc, vUv).rgb;
+  // The frame is uploaded top-row-first (see uploadSource: the flip flag is
+  // ignored for ImageBitmap, so it cannot be used), while GL samples from a
+  // bottom-left origin. This is the one place that difference is corrected,
+  // so every downstream pass shares a single orientation.
+  vec2 uv = vec2(vUv.x, 1.0 - vUv.y);
+
+  vec3 c = texture(uSrc, uv).rgb;
 
   // Unsharp mask: cheap 4-tap laplacian, skipped entirely when sharpness is 0.
   if (uSharpness > 0.001) {
     vec3 blur = (
-      texture(uSrc, vUv + vec2(uTexel.x, 0.0)).rgb +
-      texture(uSrc, vUv - vec2(uTexel.x, 0.0)).rgb +
-      texture(uSrc, vUv + vec2(0.0, uTexel.y)).rgb +
-      texture(uSrc, vUv - vec2(0.0, uTexel.y)).rgb) * 0.25;
+      texture(uSrc, uv + vec2(uTexel.x, 0.0)).rgb +
+      texture(uSrc, uv - vec2(uTexel.x, 0.0)).rgb +
+      texture(uSrc, uv + vec2(0.0, uTexel.y)).rgb +
+      texture(uSrc, uv - vec2(0.0, uTexel.y)).rgb) * 0.25;
     c = clamp(c + (c - blur) * uSharpness * 2.0, 0.0, 1.0);
   }
 
@@ -610,7 +619,8 @@ ${COMMON}
 in vec2 vUv;
 out vec4 fragColor;
 uniform sampler2D uSrc;
-void main() { fragColor = vec4(texture(uSrc, vUv).rgb, 1.0); }`;
+// Reads the raw upload, so it needs the same vertical correction as ADJUST_FRAG.
+void main() { fragColor = vec4(texture(uSrc, vec2(vUv.x, 1.0 - vUv.y)).rgb, 1.0); }`;
 
 /** Numeric ids the shader switches on. Index 0 is ascii (handled separately). */
 export const EFFECT_INDEX = {
