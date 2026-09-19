@@ -254,16 +254,40 @@ seo            100
 
 GitHub Pages, entirely static, no backend and no VPS.
 
-Pages is configured with `build_type: workflow`, so `.github/workflows/deploy.yml` is the only
-thing that decides what gets published — there is no branch-based Pages setting to keep in sync.
-Every push to `main` builds and deploys.
+### How this repository actually deploys
+
+Pages serves from the **`gh-pages` branch**, published by:
+
+```bash
+npm run deploy      # builds, then force-pushes dist/ to gh-pages
+```
+
+That is deliberate rather than preferred. `.github/workflows/deploy.yml` is the better route and
+needs no manual step, but GitHub Actions cannot allocate a runner for this account: jobs are
+created and then fail in ~2s with no runner assigned, no steps recorded and zero billable time,
+which is what a spending-limit or payment block looks like. GitHub reported no incident at the
+time, and the same happens for a six-line `echo hello` workflow, so it is not the workflow's
+content. Both workflows are disabled to keep that failure out of the commit history.
+
+`scripts/deploy-pages.mjs` stages the build in a scratch directory with its own fresh git
+repository before pushing. That detail matters: this project's `.gitignore` blocks `dist/` and
+`*.png`, so committing the build from inside the repo would silently drop every generated icon.
+
+**If Actions starts working**, switch back with:
+
+```bash
+gh api -X PUT repos/sthpenguin/ascify/actions/workflows/ci.yml/enable
+gh api -X PUT repos/sthpenguin/ascify/actions/workflows/deploy.yml/enable
+gh api -X PUT repos/sthpenguin/ascify/pages -f build_type=workflow
+```
+
+Nothing in the workflow needs editing — it already builds and uploads `dist/` correctly.
 
 ### CI
 
-`.github/workflows/ci.yml` runs alongside it on every push and pull request: it builds, asserts the
-expected artifacts exist, fails if any media file ever becomes tracked by git, and runs the privacy,
-render, orientation, responsive and offline suites in a real browser. `npm run verify` does the same
-work locally.
+`.github/workflows/ci.yml` builds, asserts the expected artifacts exist, fails if any media file
+ever becomes tracked by git, and runs the privacy, render, orientation, responsive and offline
+suites in a real browser. While Actions is blocked, `npm run verify` runs the same checks locally.
 
 ### How the Pages build is wired
 

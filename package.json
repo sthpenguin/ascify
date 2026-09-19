@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "node scripts/gen-icons.mjs && vite build",
     "preview": "vite preview --port 4173",
+    "deploy": "node scripts/deploy-pages.mjs",
     "icons": "node scripts/gen-icons.mjs",
     "test": "npm run test:privacy && npm run test:render && npm run test:orientation && npm run test:responsive && npm run test:offline",
     "test:privacy": "node scripts/privacy-check.mjs",
