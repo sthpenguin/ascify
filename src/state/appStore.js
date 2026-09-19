@@ -186,6 +186,10 @@ export const useApp = create((set, get) => ({
         loading: null,
         error: null,
       });
+      // New media is framed fresh. Zoom and pan are persisted, so without this
+      // a view left zoomed or panned from a previous file silently applies to
+      // the next one.
+      get().updateUi({ zoom: 1, panX: 0, panY: 0 });
     } catch (err) {
       const e = err instanceof MediaError ? err : new MediaError(err?.message ?? 'Load failed.');
       set({ media: null, mediaInfo: null, loading: null, error: { message: e.message, hint: e.hint } });

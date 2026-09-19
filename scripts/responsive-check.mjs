@@ -109,6 +109,60 @@ async function main() {
     const title = await page.title();
     check('page rendered', title.includes('ascify'), title);
 
+    // The preview must survive gestures. A swipe is what people instinctively
+    // do to scroll a phone, and pan is persisted — so an unbounded pan leaves
+    // the preview permanently empty, with every later upload rendering
+    // correctly but off-screen and nothing on screen to explain why.
+    if (vp.touch) {
+      await page.evaluate(`(async () => {
+        const c = document.createElement('canvas');
+        c.width = 600; c.height = 600;
+        const x = c.getContext('2d');
+        x.fillStyle = '#ff5500'; x.fillRect(0, 0, 600, 300);
+        x.fillStyle = '#0055ff'; x.fillRect(0, 300, 600, 300);
+        const b = await new Promise(r => c.toBlob(r, 'image/png'));
+        c.width = 0; c.height = 0;
+        await window.__ascifyStore.getState().load(new File([b], 'g.png', { type: 'image/png' }));
+      })()`);
+      await page.waitForTimeout(2200);
+
+      const overlap = async () =>
+        page.evaluate(`(() => {
+          const el = document.querySelector('canvas');
+          if (!el) return 0;
+          const b = el.getBoundingClientRect();
+          const w = el.parentElement.getBoundingClientRect();
+          const ox = Math.max(0, Math.min(b.right, w.right) - Math.max(b.left, w.left));
+          const oy = Math.max(0, Math.min(b.bottom, w.bottom) - Math.max(b.top, w.top));
+          return Math.round(Math.min(ox, oy));
+        })()`);
+
+      check('preview visible after load', (await overlap()) > 10, `${await overlap()}px overlap`);
+
+      const area = await page.$('.touch-none-pan');
+      const box = await area.boundingBox();
+      const cx = box.x + box.width / 2;
+      const cy = box.y + box.height / 2;
+      for (const [dx, dy] of [[0, -800], [0, 800], [-800, 0]]) {
+        await page.mouse.move(cx, cy);
+        await page.mouse.down();
+        await page.mouse.move(cx + dx, cy + dy, { steps: 8 });
+        await page.mouse.up();
+        await page.waitForTimeout(250);
+      }
+      check('preview survives swiping', (await overlap()) > 10, `${await overlap()}px overlap`);
+
+      // Panning while zoomed in is allowed, but must stay bounded.
+      await page.evaluate('window.__ascifyStore.getState().updateUi({ zoom: 4 })');
+      await page.waitForTimeout(250);
+      await page.mouse.move(cx, cy);
+      await page.mouse.down();
+      await page.mouse.move(cx + 2000, cy - 2000, { steps: 8 });
+      await page.mouse.up();
+      await page.waitForTimeout(300);
+      check('pan bounded when zoomed', (await overlap()) > 10, `${await overlap()}px overlap`);
+    }
+
     await context.close();
   }
 

@@ -37,7 +37,36 @@ export function usePinchPan(ref, value, onChange) {
       }
     };
 
-    const schedule = (next) => {
+    /**
+     * Keep the canvas inside the frame.
+     *
+     * Without this, one swipe — the gesture people instinctively use to scroll
+     * a phone — drags the image arbitrarily far away, and because pan is
+     * persisted the preview then looks permanently empty: every later upload
+     * renders correctly but off-screen, with nothing on screen to explain why.
+     *
+     * The bound is the overflow the current zoom actually produces, so at
+     * zoom 1 (where the image already fits) the pan range is zero and a stray
+     * drag does nothing at all.
+     */
+    const clampPan = (next) => {
+      const canvas = el.querySelector('canvas');
+      if (!canvas) return next;
+      const zoom = next.zoom ?? state.current.zoom;
+      // offsetWidth/Height are the laid-out size, before the CSS transform.
+      const overflowX = Math.max(0, (canvas.offsetWidth * zoom - el.clientWidth) / 2);
+      const overflowY = Math.max(0, (canvas.offsetHeight * zoom - el.clientHeight) / 2);
+      const panX = next.panX ?? state.current.panX;
+      const panY = next.panY ?? state.current.panY;
+      return {
+        ...next,
+        panX: Math.min(overflowX, Math.max(-overflowX, panX)),
+        panY: Math.min(overflowY, Math.max(-overflowY, panY)),
+      };
+    };
+
+    const schedule = (raw) => {
+      const next = clampPan(raw);
       pending = { ...pending, ...next };
       state.current = { ...state.current, ...next };
       if (!frame) frame = requestAnimationFrame(flush);
