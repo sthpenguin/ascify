@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useApp } from '../../state/appStore.js';
 import { ADJUSTMENT_DEFS, POST_DEFS, RENDER_DEFS, AUDIO_DEFS } from '../../lib/schema.js';
 import { ParamGroup } from '../controls/ParamGroup.jsx';
@@ -28,10 +29,34 @@ export function AdjustmentsPanel() {
 }
 
 /** Renderer/performance settings, plus live backend telemetry. */
+/**
+ * What this device actually supports. Read once — these do not change within a
+ * session — and shown in the panel so a rendering problem can be diagnosed from
+ * the phone it happens on, without a console.
+ */
+function readCapabilities() {
+  let webgl2 = false;
+  try {
+    const probe = document.createElement('canvas');
+    webgl2 = !!probe.getContext('webgl2');
+    probe.width = 0;
+    probe.height = 0;
+  } catch {
+    webgl2 = false;
+  }
+  return {
+    webgl2,
+    webgpu: typeof navigator !== 'undefined' && !!navigator.gpu,
+    dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
+    viewport: `${window.innerWidth}x${window.innerHeight}`,
+  };
+}
+
 export function ProcessingPanel() {
   const render = useApp((s) => s.settings.render);
   const stats = useApp((s) => s.stats);
   const updateSettings = useApp((s) => s.updateSettings);
+  const caps = useMemo(readCapabilities, []);
 
   const set = (key, value, transient) =>
     updateSettings((s) => ({ ...s, render: { ...s.render, [key]: value } }), {
@@ -49,6 +74,14 @@ export function ProcessingPanel() {
         <span className="text-term-muted">render size</span>
         <span className="text-right text-term-accent tabular-nums">
           {stats.width}×{stats.height}
+        </span>
+        <span className="text-term-muted">webgl2 / webgpu</span>
+        <span className="text-right text-term-accent">
+          {caps.webgl2 ? 'yes' : 'no'} / {caps.webgpu ? 'yes' : 'no'}
+        </span>
+        <span className="text-term-muted">viewport @dpr</span>
+        <span className="text-right text-term-accent tabular-nums">
+          {caps.viewport} @{caps.dpr}
         </span>
       </div>
       <ParamGroup defs={RENDER_DEFS} values={render} groupPath={['render']} onChange={set} />

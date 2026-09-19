@@ -139,6 +139,21 @@ async function main() {
 
       check('preview visible after load', (await overlap()) > 10, `${await overlap()}px overlap`);
 
+      // A collapsed preview frame is the failure mode a percentage height in a
+      // flex column produces on Safari, so assert the frame keeps real height
+      // rather than only that something overlaps it.
+      const frame = await page.evaluate(`(() => {
+        const el = document.querySelector('canvas');
+        if (!el) return null;
+        const r = el.parentElement.getBoundingClientRect();
+        return { h: Math.round(r.height), w: Math.round(r.width), vh: window.innerHeight };
+      })()`);
+      check(
+        'preview frame has real height',
+        frame && frame.h >= Math.min(120, frame.vh * 0.15),
+        frame ? `${frame.w}x${frame.h} of ${frame.vh}` : 'no frame',
+      );
+
       const area = await page.$('.touch-none-pan');
       const box = await area.boundingBox();
       const cx = box.x + box.width / 2;

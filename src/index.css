@@ -44,6 +44,18 @@
     height: 100%;
   }
 
+  /* Mobile browsers shrink and grow the visible area as their toolbars slide.
+     100% resolves against the larger layout viewport, so the bottom of the app
+     sits under the chrome; dvh tracks the area actually on screen. Declared
+     second so browsers without dvh keep the 100% above. */
+  @supports (height: 100dvh) {
+    html,
+    body,
+    #root {
+      height: 100dvh;
+    }
+  }
+
   body {
     margin: 0;
     background: var(--color-term-bg);

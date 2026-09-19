@@ -76,6 +76,44 @@ export function computeRenderSize(srcW, srcH, settings, viewport) {
  * in place — the caller must supply a fresh canvas to change it. That is why
  * this runs before any context exists rather than upgrading later.
  */
+/**
+ * Can this device actually run the WebGL2 backend?
+ *
+ * Asked on a throwaway canvas, because the answer is not just "is there a
+ * context" — the shaders have to compile and link too, and on mobile GPUs that
+ * is where it fails. Probing matters because a canvas is bound to the first
+ * context type it is given *forever*: if WebGL2 were attempted directly on the
+ * display canvas and threw at shader compilation, the canvas would already be
+ * a WebGL canvas, getContext('2d') would then return null, and the CPU
+ * fallback would be impossible. The app would die on exactly the low-end
+ * devices the fallback exists for.
+ */
+function webgl2Works(onError) {
+  const probe = document.createElement('canvas');
+  probe.width = 2;
+  probe.height = 2;
+  try {
+    const backend = createWebGL2Backend(probe);
+    if (!backend) return false;
+    backend.dispose();
+    return true;
+  } catch (err) {
+    onError?.(err);
+    return false;
+  } finally {
+    probe.width = 0;
+    probe.height = 0;
+  }
+}
+
+/**
+ * Choose a backend for `canvas`.
+ *
+ * Deliberately async and done exactly once per canvas: a canvas element is
+ * bound to the first context type it is given, forever. Asking for 'webgpu'
+ * after 'webgl2' returns null, so there is no such thing as swapping a backend
+ * in place — the caller must supply a fresh canvas to change it.
+ */
 async function selectBackend(canvas, pref, onError) {
   if (pref === 'auto' || pref === 'webgpu') {
     if (navigator.gpu) {
@@ -91,7 +129,7 @@ async function selectBackend(canvas, pref, onError) {
     }
   }
 
-  if (pref !== 'cpu') {
+  if (pref !== 'cpu' && webgl2Works(onError)) {
     try {
       const gl = createWebGL2Backend(canvas);
       if (gl) return gl;

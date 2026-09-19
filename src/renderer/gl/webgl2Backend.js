@@ -88,7 +88,9 @@ export function createWebGL2Backend(canvas) {
     premultipliedAlpha: false,
     preserveDrawingBuffer: true, // export reads the drawing buffer back
     powerPreference: 'high-performance',
-    desynchronized: true,
+    // `desynchronized: true` is deliberately absent. It asks for a low-latency
+    // path that some mobile compositors never present, producing a blank canvas
+    // with no error anywhere. The latency it saves is irrelevant here.
   });
   if (!gl) return null;
 

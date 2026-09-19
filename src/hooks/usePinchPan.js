@@ -51,11 +51,21 @@ export function usePinchPan(ref, value, onChange) {
      */
     const clampPan = (next) => {
       const canvas = el.querySelector('canvas');
-      if (!canvas) return next;
+      if (!canvas || !canvas.width || !canvas.height) return next;
       const zoom = next.zoom ?? state.current.zoom;
-      // offsetWidth/Height are the laid-out size, before the CSS transform.
-      const overflowX = Math.max(0, (canvas.offsetWidth * zoom - el.clientWidth) / 2);
-      const overflowY = Math.max(0, (canvas.offsetHeight * zoom - el.clientHeight) / 2);
+
+      // The canvas element fills the frame, but object-contain letterboxes the
+      // bitmap inside it. Bounding against the element box would let the
+      // picture itself drift out of view on a mismatched aspect ratio, so the
+      // bound is computed from the drawn content, not the element.
+      const boxW = canvas.offsetWidth;
+      const boxH = canvas.offsetHeight;
+      const aspect = canvas.width / canvas.height;
+      const contentW = Math.min(boxW, boxH * aspect);
+      const contentH = contentW / aspect;
+
+      const overflowX = Math.max(0, (contentW * zoom - el.clientWidth) / 2);
+      const overflowY = Math.max(0, (contentH * zoom - el.clientHeight) / 2);
       const panX = next.panX ?? state.current.panX;
       const panY = next.panY ?? state.current.panY;
       return {

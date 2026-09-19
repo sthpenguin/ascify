@@ -22,6 +22,11 @@ export function Preview({ onContext }) {
   const updateUi = useApp((s) => s.updateUi);
   const [playing, setPlaying] = useState(true);
   const [scrub, setScrub] = useState(0);
+  // Surfaced on screen rather than only in the console: a preview that renders
+  // nothing is indistinguishable from one that is merely empty, and on a phone
+  // there is no console to check.
+  const [engineError, setEngineError] = useState(null);
+  const [frameBox, setFrameBox] = useState(null);
 
   const { zoom, panX, panY } = ui;
 
@@ -64,6 +69,10 @@ export function Preview({ onContext }) {
   // has just asked to be rid of. The canvas itself unmounts (see below), so
   // the next load starts from a fresh one.
   useEffect(() => {
+    if (media) setEngineError(null);
+  }, [media]);
+
+  useEffect(() => {
     if (media || !engineRef.current) return;
     engineRef.current.dispose();
     engineRef.current = null;
@@ -90,6 +99,7 @@ export function Preview({ onContext }) {
           onError: (err) => {
             // Backend problems are recoverable; surface them without a modal.
             console.warn('[ascify renderer]', err);
+            setEngineError(String(err?.message ?? err).slice(0, 220));
           },
           onFatal: (next) => {
             // Rebuild one rung down on a brand-new canvas.
@@ -107,7 +117,9 @@ export function Preview({ onContext }) {
         engineRef.current = engine;
         setEngineReady(true);
       } catch (err) {
-        useApp.getState().setError({ message: err?.message ?? 'No rendering backend is available.' });
+        const message = err?.message ?? 'No rendering backend is available.';
+        setEngineError(message);
+        useApp.getState().setError({ message });
       }
     })();
     return () => {
@@ -168,6 +180,7 @@ export function Preview({ onContext }) {
     if (!wrap) return undefined;
     const ro = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
+      setFrameBox({ width: Math.round(width), height: Math.round(height) });
       engineRef.current?.setViewport({ width, height });
       if (media && !media.animated) engineRef.current?.renderOnce();
       media?.resize?.(width, height);
@@ -290,17 +303,34 @@ export function Preview({ onContext }) {
           backgroundSize: ui.showGrid ? '24px 24px' : undefined,
         }}
       >
+        {/* The canvas fills its frame absolutely so its box never depends on
+            percentage resolution, and object-contain letterboxes the bitmap
+            inside it. max-height:100% on a flex child is exactly the kind of
+            thing Safari gets wrong when the parent height came from flex. */}
         {media ? (
           <canvas
             key={canvasKey}
             ref={canvasRef}
-            className="max-h-full max-w-full object-contain"
+            className="absolute inset-0 h-full w-full object-contain"
             style={{
               transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`,
               transformOrigin: 'center',
               imageRendering: zoom > 1.8 ? 'pixelated' : 'auto',
             }}
           />
+        ) : null}
+
+        {media && (engineError || (frameBox && frameBox.height < 24)) ? (
+          <div className="absolute inset-x-2 top-2 z-10 border border-term-error/50 bg-term-bg/95 p-2">
+            <p className="text-[12px] text-term-error">
+              {engineError
+                ? 'The renderer could not start on this device.'
+                : 'The preview area has collapsed to no height.'}
+            </p>
+            <p className="mt-1 break-words text-[12px] text-term-muted">
+              {engineError ?? `frame ${frameBox?.width}x${frameBox?.height}`}
+            </p>
+          </div>
         ) : null}
 
         {!media ? (

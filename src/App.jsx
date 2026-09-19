@@ -256,12 +256,21 @@ function CompactLayout({ exportContext, onContext }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className={`flex min-h-0 ${showPreviewOnly || !sheetOpen ? 'flex-1' : 'h-[38%] shrink-0'}`}>
+      {/* Split by flex-grow ratio, never by percentage height. Safari does not
+          reliably resolve a percentage height against a parent whose own height
+          came from flex, and falls back to auto — which collapses this wrapper
+          to nothing and takes the canvas (max-height: 100%) with it. Chromium
+          resolves it fine, so the bug only ever showed on real phones. */}
+      <div
+        className={`flex min-h-0 ${
+          showPreviewOnly || !sheetOpen ? 'flex-1' : 'shrink basis-0 grow-[38]'
+        }`}
+      >
         <Preview onContext={onContext} />
       </div>
 
       {!showPreviewOnly && sheetOpen ? (
-        <div className="term-scroll min-h-0 flex-1 border-t border-term-line bg-term-panel inset-safe-x">
+        <div className="term-scroll min-h-0 shrink basis-0 grow-[62] border-t border-term-line bg-term-panel inset-safe-x">
           {tab === 'input' ? (
             <div className="p-3">
               <InputPanel />
