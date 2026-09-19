@@ -1,35 +1,13 @@
 name: Deploy to GitHub Pages
 
-# Manual-trigger only, deliberately.
+# Publishes dist/ to GitHub Pages on every push to main.
 #
-# This account's plan cannot run GitHub Actions *or* GitHub Pages against a
-# private repository. Both were verified directly:
-#
-#   POST /repos/OWNER/REPO/pages
-#   -> 422 "Your current plan does not support GitHub Pages for this repository."
-#
-#   ...and every workflow run — including a six-line `echo hello` probe — ends
-#   in `startup_failure` after 0s with no logs and no jobs created, which is
-#   what GitHub returns when a private repository cannot consume Actions
-#   minutes.
-#
-# So a push trigger here would mark every commit failed without ever running a
-# step. The workflow itself is correct and was validated by building the same
-# `dist/` locally; it is kept ready rather than removed.
-#
-# To deploy: make Actions and Pages available for this repository (make it
-# public, or upgrade the account), re-enable the workflows
-#
-#   gh api -X PUT repos/OWNER/REPO/actions/workflows/deploy.yml/enable
-#   gh api -X PUT repos/OWNER/REPO/actions/workflows/ci.yml/enable
-#
-# then add
-#
-#   push:
-#     branches: [main]
-#
-# back under `on:`. Nothing else needs to change.
+# Pages is configured with `build_type: workflow`, so this file is the sole
+# source of truth for what gets published — there is no branch-based Pages
+# setting to keep in sync with it.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 # GITHUB_TOKEN needs `pages: write` and `id-token: write` for deploy-pages to
