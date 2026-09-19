@@ -53,6 +53,10 @@ export function About() {
           your media is never given to the service worker.
         </p>
       </section>
+
+      <section className="border-t border-term-line-soft pt-4">
+        <p className="text-term-accent-dim">Developed by Mazen</p>
+      </section>
     </div>
   );
 }

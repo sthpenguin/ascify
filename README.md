@@ -349,7 +349,7 @@ src/
   export/       format metadata · exporters · GIF encoder · Three.js template
   components/   panels · controls · preview · charset editor
   hooks/        breakpoints · pinch/pan gestures
-  pages/        about · changelog
+  pages/        about
   state/        app store
 scripts/        icon generation · privacy · responsive · render · Lighthouse checks
 ```

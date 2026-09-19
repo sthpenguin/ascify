@@ -15,7 +15,6 @@ import {
 } from './components/panels/SettingsPanels.jsx';
 import { ExportPanel } from './components/panels/ExportPanel.jsx';
 import { About } from './pages/About.jsx';
-import { Changelog } from './pages/Changelog.jsx';
 
 export default function App() {
   const route = useRoute();
@@ -42,7 +41,6 @@ export default function App() {
   }
 
   if (route === '/about') return <Page title="about"><About /></Page>;
-  if (route === '/changelog') return <Page title="changelog"><Changelog /></Page>;
   return <Studio />;
 }
 
@@ -109,9 +107,6 @@ function Footer() {
       </a>
       <Link to="/about" className="tap min-h-11 px-2 hover:text-term-accent">
         About
-      </Link>
-      <Link to="/changelog" className="tap min-h-11 px-2 hover:text-term-accent">
-        Changelog
       </Link>
     </footer>
   );
