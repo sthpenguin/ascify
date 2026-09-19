@@ -81,7 +81,14 @@ async function main() {
 
   const browser = await chromium.launch({
     executablePath: CHROME,
-    args: ['--no-sandbox', '--use-gl=swiftshader', '--enable-unsafe-swiftshader'],
+    args: [
+      '--no-sandbox',
+      '--use-gl=swiftshader',
+      '--enable-unsafe-swiftshader',
+      // Asks for WebGPU where the build supports it; harmless where it does not.
+      '--enable-unsafe-webgpu',
+      '--enable-features=Vulkan',
+    ],
   });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 
@@ -102,7 +109,16 @@ async function main() {
 
   process.stdout.write('\nascify render check\n');
 
-  for (const backend of ['webgl2', 'cpu']) {
+  const hasWebGPU = await page.evaluate('!!navigator.gpu');
+  if (!hasWebGPU) {
+    process.stdout.write(
+      '\n  note: this browser exposes no navigator.gpu, so the WebGPU backend is not\n' +
+      '        exercised here. scripts/wgsl-probe.mjs covers it natively via Deno.\n',
+    );
+  }
+
+  const backends = hasWebGPU ? ['webgpu', 'webgl2', 'cpu'] : ['webgl2', 'cpu'];
+  for (const backend of backends) {
     process.stdout.write(`\n  backend: ${backend}\n`);
     await page.evaluate(
       `window.__ascifyStore.getState().updateSettings(s => ({ ...s, render: { ...s.render, backend: '${backend}' } }))`,
@@ -140,12 +156,15 @@ async function main() {
         check(effect, false, result.reason);
         continue;
       }
-      // A working effect produces variation; a broken one is flat black/white.
+      // A stage that renders nothing at all is the WebGPU failure mode: valid
+      // output, zero pixels, no error. Assert light exists before anything else.
+      // Beyond that, a working effect produces variation rather than a flat fill.
+      const lit = result.max > 0;
       const varied = result.max - result.min > 12 && result.colors > 3;
       check(
         effect,
-        varied,
-        `range ${Math.round(result.min)}-${Math.round(result.max)} colors ${result.colors} @${result.size}`,
+        lit && varied,
+        `${lit ? '' : 'ALL BLACK '}range ${Math.round(result.min)}-${Math.round(result.max)} colors ${result.colors} @${result.size}`,
       );
     }
 

@@ -22,10 +22,12 @@ export function Preview({ onContext }) {
   const updateUi = useApp((s) => s.updateUi);
   const [playing, setPlaying] = useState(true);
   const [scrub, setScrub] = useState(0);
-  // Surfaced on screen rather than only in the console: a preview that renders
-  // nothing is indistinguishable from one that is merely empty, and on a phone
-  // there is no console to check.
+  // Two distinct states, deliberately. `engineError` means no backend could be
+  // built at all and the preview really is dead — that blocks. `fallbackNote`
+  // means a backend failed and a lower one took over, which is a working app
+  // and must not look like a crash.
   const [engineError, setEngineError] = useState(null);
+  const [fallbackNote, setFallbackNote] = useState(null);
   const [frameBox, setFrameBox] = useState(null);
 
   const { zoom, panX, panY } = ui;
@@ -52,6 +54,17 @@ export function Preview({ onContext }) {
   const [canvasKey, setCanvasKey] = useState(0);
   const backendOverride = useRef(null);
   const lastPref = useRef(backendPref);
+  // Engine creation is async, so two runs can be in flight at once (React
+  // StrictMode double-invokes effects, and a backend switch re-runs this).
+  // Whichever finishes second must win, and the loser must be disposed — a
+  // superseded engine left undisposed leaks its GPU device, and one disposed
+  // late destroys a device the winner is still rendering into.
+  const creationToken = useRef(0);
+  // A canvas keeps its first context type for life, so a canvas that has
+  // already hosted one engine can never host a different backend. Tracking
+  // which element was consumed lets the next engine demand a fresh one instead
+  // of silently failing its way down to the CPU path.
+  const consumedCanvas = useRef(null);
 
   useEffect(() => {
     if (lastPref.current === backendPref) return;
@@ -72,6 +85,13 @@ export function Preview({ onContext }) {
     if (media) setEngineError(null);
   }, [media]);
 
+  // The fallback note has said its piece after a few seconds.
+  useEffect(() => {
+    if (!fallbackNote) return undefined;
+    const t = setTimeout(() => setFallbackNote(null), 6000);
+    return () => clearTimeout(t);
+  }, [fallbackNote]);
+
   useEffect(() => {
     if (media || !engineRef.current) return;
     engineRef.current.dispose();
@@ -84,11 +104,21 @@ export function Preview({ onContext }) {
 
   useEffect(() => {
     if (!media || engineRef.current) return undefined;
-    let cancelled = false;
+
+    // Remount before doing anything else if this element has been used before;
+    // the effect re-runs against the replacement.
+    if (canvasRef.current && consumedCanvas.current === canvasRef.current) {
+      setCanvasKey((k) => k + 1);
+      return undefined;
+    }
+
+    const token = ++creationToken.current;
+    const superseded = () => creationToken.current !== token;
     void (async () => {
       const { createEngine } = await import('../renderer/index.js');
       const canvas = canvasRef.current;
-      if (cancelled || !canvas) return;
+      if (superseded() || !canvas) return;
+      consumedCanvas.current = canvas;
       const current = useApp.getState().settings;
       const pref = backendOverride.current ?? current.render.backend;
       try {
@@ -97,9 +127,9 @@ export function Preview({ onContext }) {
           onStats: setStats,
           onBackendChange: (name) => setStats({ ...useApp.getState().stats, backend: name }),
           onError: (err) => {
-            // Backend problems are recoverable; surface them without a modal.
+            // Informational: a rejected WebGPU probe or a recovered device loss
+            // is not a failure of the app, so it never blocks the preview.
             console.warn('[ascify renderer]', err);
-            setEngineError(String(err?.message ?? err).slice(0, 220));
           },
           onFatal: (next) => {
             // Rebuild one rung down on a brand-new canvas.
@@ -107,14 +137,16 @@ export function Preview({ onContext }) {
             engineRef.current?.dispose();
             engineRef.current = null;
             setEngineReady(false);
+            setFallbackNote(`GPU path unavailable — switched to ${next}.`);
             setCanvasKey((k) => k + 1);
           },
         });
-        if (cancelled || !engine) {
+        if (superseded() || !engine) {
           engine?.dispose();
           return;
         }
         engineRef.current = engine;
+        window.__ascifyDebugState = () => engineRef.current?.debugState?.() ?? null;
         setEngineReady(true);
       } catch (err) {
         const message = err?.message ?? 'No rendering backend is available.';
@@ -123,7 +155,9 @@ export function Preview({ onContext }) {
       }
     })();
     return () => {
-      cancelled = true;
+      // Invalidate this run without disposing: the engine it produced (if any)
+      // is disposed by the run itself once it sees it has been superseded.
+      creationToken.current++;
     };
   }, [media, canvasKey, setStats]);
 
@@ -330,6 +364,15 @@ export function Preview({ onContext }) {
             <p className="mt-1 break-words text-[12px] text-term-muted">
               {engineError ?? `frame ${frameBox?.width}x${frameBox?.height}`}
             </p>
+          </div>
+        ) : null}
+
+        {fallbackNote && !engineError ? (
+          <div
+            role="status"
+            className="pointer-events-none absolute inset-x-2 top-2 z-10 border border-term-line bg-term-bg/90 px-2 py-1"
+          >
+            <p className="text-[12px] text-term-muted">{fallbackNote}</p>
           </div>
         ) : null}
 

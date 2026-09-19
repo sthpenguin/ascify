@@ -142,9 +142,26 @@ permanently bound to the first context type it is given, so changing backend req
 new canvas — the renderer never tries to swap one in place, and `Preview` remounts the canvas when
 the preference changes or when a backend dies mid-frame.
 
-The WebGPU backend is a separate chunk that is only fetched on devices that actually have
-`navigator.gpu`. Any failure in it — no adapter, a rejected shader, a lost device — degrades to
-WebGL2 without interrupting the session.
+The WebGPU backend is a separate chunk fetched only where `navigator.gpu` exists, and it is never
+trusted on the strength of being constructible. `probeWebGPU` renders a known-bright frame through
+the real pipelines into an offscreen target and reads the pixels back *before* the display canvas is
+touched; a device that cannot draw is rejected while falling back is still free. After that, an
+uncaptured error, a device loss, or a first frame that comes out black against a non-black source
+all hand over to WebGL2, and the UI says so rather than showing a crash.
+
+Two WebGPU constraints shape this design, and both caused real bugs:
+
+- **A texture cannot be a sampled resource and a colour attachment at once.** Each pass therefore
+  gets its own bind group layout binding only what that entry point reads. A single shared layout
+  necessarily binds the render targets, which invalidates the pass — and WebGPU reports that through
+  `uncapturederror` rather than throwing, so the symptom is a silently black canvas that looks
+  exactly like a working backend.
+- **An adapter can only ever vend one device** (`requestDevice` on a used adapter fails with
+  "adapter is consumed"). The device is a page-level singleton shared by every backend instance, and
+  disposing a backend frees its own resources but never the device.
+
+Relatedly, a canvas keeps its first context type for life, so `Preview` mounts a fresh canvas for
+every engine rather than reusing one.
 
 Two effects are inherently sequential and always run on the CPU: **pixel sorting** and
 **error-diffusion dithering** (Floyd–Steinberg, Atkinson). On a GPU backend their pixels are
@@ -231,7 +248,8 @@ Individually:
 |---|---|
 | `npm run test:privacy` | Loads, replaces and clears large media, then asserts nothing persisted anywhere |
 | `npm run test:responsive` | Checks overflow, layout mode and 44px touch targets at 320/768/1440 |
-| `npm run test:render` | Renders all 15 effects on **both** WebGL2 and CPU, then runs every export format |
+| `npm run test:render` | Renders all 15 effects on every available backend, asserting pixels are not black, then runs every export format |
+| `npm run test:wgsl` | Executes the WGSL through the real pass chain under Deno's native WebGPU and reads the pixels back (requires Deno) |
 | `npm run test:orientation` | Asserts output is never flipped, and that clearing media really removes it |
 | `npm run test:offline` | Installs the service worker, cuts the network, and reloads — including a deep link |
 | `npm run lighthouse` | Mobile profile; fails below 95 in any category |

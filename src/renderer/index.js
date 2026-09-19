@@ -88,7 +88,14 @@ export function computeRenderSize(srcW, srcH, settings, viewport) {
  * fallback would be impossible. The app would die on exactly the low-end
  * devices the fallback exists for.
  */
+let webgl2Supported = null;
+
 function webgl2Works(onError) {
+  // Only a success is cached. Browsers cap live WebGL contexts, so re-probing
+  // on every engine creation burns that budget — but a failure can equally be
+  // a transient shortage while old contexts are still being reclaimed, and
+  // caching that would permanently strand a capable machine on the CPU path.
+  if (webgl2Supported === true) return true;
   const probe = document.createElement('canvas');
   probe.width = 2;
   probe.height = 2;
@@ -96,6 +103,7 @@ function webgl2Works(onError) {
     const backend = createWebGL2Backend(probe);
     if (!backend) return false;
     backend.dispose();
+    webgl2Supported = true;
     return true;
   } catch (err) {
     onError?.(err);
@@ -114,14 +122,22 @@ function webgl2Works(onError) {
  * after 'webgl2' returns null, so there is no such thing as swapping a backend
  * in place — the caller must supply a fresh canvas to change it.
  */
-async function selectBackend(canvas, pref, onError) {
+async function selectBackend(canvas, pref, onError, onFatal) {
   if (pref === 'auto' || pref === 'webgpu') {
     if (navigator.gpu) {
       try {
         // Only fetched on devices that actually have WebGPU.
-        const { createWebGPUBackend } = await import('./gpu/webgpuBackend.js');
-        const gpu = await createWebGPUBackend(canvas);
-        if (gpu) return gpu;
+        const { createWebGPUBackend, probeWebGPU } = await import('./gpu/webgpuBackend.js');
+        // Probe on its own resources first. The probe renders a known-bright
+        // frame and reads the pixels back, so a device that produces black —
+        // the failure mode that otherwise looks exactly like success — is
+        // rejected here, while the display canvas is still untouched and
+        // falling back is still possible.
+        const probed = await probeWebGPU(onError);
+        if (probed) {
+          const gpu = await createWebGPUBackend(canvas, { onError, onFatal, probed });
+          if (gpu) return gpu;
+        }
       } catch (err) {
         // WebGPU is the preference, not a requirement.
         onError?.(err);
@@ -172,7 +188,17 @@ export async function createEngine(canvas, { settings: initialSettings, onStats,
   let fpsAccum = 0;
   let fpsFrames = 0;
 
-  backend = await selectBackend(canvas, settings?.render.backend ?? 'auto', onError);
+  backend = await selectBackend(
+    canvas,
+    settings?.render.backend ?? 'auto',
+    onError,
+    // A backend that fails after creation (device lost, uncaptured error) asks
+    // the host for a fresh canvas one rung down rather than going black.
+    (next) => {
+      stop();
+      onFatal?.(next);
+    },
+  );
   if (disposed) {
     backend.dispose?.();
     return null;
@@ -349,6 +375,9 @@ export async function createEngine(canvas, { settings: initialSettings, onStats,
     start,
     stop,
     isRunning: () => running,
+
+    /** Diagnostic passthrough to the active backend, when it offers one. */
+    debugState: () => ({ name: backend?.name, ...(backend?.debugState?.() ?? {}) }),
 
     dispose() {
       disposed = true;

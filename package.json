@@ -14,6 +14,7 @@
     "test": "npm run test:privacy && npm run test:render && npm run test:orientation && npm run test:responsive && npm run test:offline",
     "test:privacy": "node scripts/privacy-check.mjs",
     "test:render": "node scripts/render-check.mjs",
+    "test:wgsl": "deno run --unstable-webgpu --allow-read scripts/wgsl-probe.mjs",
     "test:orientation": "node scripts/orientation-check.mjs",
     "test:responsive": "node scripts/responsive-check.mjs",
     "test:offline": "node scripts/offline-check.mjs",
